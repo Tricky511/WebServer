@@ -34,7 +34,6 @@ bool Request::isKeepAlive() const
 bool Request::parse(Buffer &buff)
 {
     const char CRLF[] = "\r\n";
-
     while (state != FINISH)
     {
         const char *end = std::search(buff.gethead(), buff.gettail(), CRLF, CRLF + 2);
@@ -66,28 +65,30 @@ bool Request::parse(Buffer &buff)
 }
 bool Request::parseRequestLine(const std::string &line)
 {
-    std::regex pattern("^([^ ]*) ([^ ]*) HTTP/([^ ]*)$");
-    std::smatch sub;
-    if (regex_match(line, sub, pattern))
-    {
-        method = sub[1];
-        path = sub[2];
-        version = sub[3];
-        state = HEADER;
-        return true;
-    }
-    return false;
+
+    size_t pos1 = line.find(' ');
+    size_t pos2 = line.find(' ', pos1 + 1);
+    if (pos1 == line.npos || pos2 == line.npos)
+        return false;
+    method = line.substr(0, pos1);
+    path = line.substr(pos1 + 1, pos2 - pos1 - 1);
+    version = line.substr(pos2 + 6);
+    std::cout << version << std::endl;
+    state = HEADER;
+    return true;
 }
 void Request::parseRequestHeader(const std::string &line)
 {
-    std::regex pattern("^([^:]*): ?(.*)$");
-    std::smatch sub;
-    if (regex_match(line, sub, pattern))
-    {
-        header[sub[1]] = sub[2];
-    }
-    else
+    size_t pos = line.find(':');
+    if (pos == line.npos)
         state = BODY;
+    else
+    {
+        if (line[pos + 1] == ' ')
+            header[line.substr(0, pos)] = line.substr(pos + 2);
+        else
+            header[line.substr(0, pos)] = line.substr(pos + 1);
+    }
 }
 void Request::parseRequestBody(const std::string &line)
 {
