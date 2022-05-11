@@ -1,9 +1,15 @@
 #include "webserver.h"
+#define MAX_FD 66535
+int Webserver::timeout;
+std::unique_ptr<TimeHeap> Webserver::timer(new TimeHeap());
+std::unique_ptr<ThreadPool> Webserver::threadpool;
+std::unique_ptr<Epoll> Webserver::epoller(new Epoll());
 
-Webserver::Webserver(int port, int timeout, int threadNum, int queMaxSize)
-    : port(port), timeout(timeout), isClose(false), timer(new TimeHeap()),
-      threadpool(new ThreadPool(threadNum, queMaxSize)), epoller(new Epoll())
+Webserver::Webserver(int port, int _timeout, int threadNum, int queMaxSize) : port(port), isClose(false), user(MAX_FD)
 {
+
+    threadpool.reset(new ThreadPool(threadNum, queMaxSize));
+    timeout = _timeout;
     dir = getcwd(nullptr, 256);
     strncat(dir, "/resources/", 16);
     Connect::userCount = 0;
@@ -75,7 +81,7 @@ void Webserver::addConn(int fd, sockaddr_in addr)
     user[fd].init(fd, addr);
     if (timeout > 0)
     {
-        timer->add(fd, timeout, std::bind(&Webserver::closeConn, this, &user[fd]));
+        timer->add(fd, timeout, std::bind(&Webserver::closeConn, &user[fd]));
     }
     epoller->add(fd, connectionEvent | EPOLLIN);
     setFdNonblock(fd);
@@ -116,13 +122,13 @@ void Webserver::handleRead(Connect *client)
 {
     flushTime(client);
 
-    threadpool->Submit(std::bind(&Webserver::onRead, this, client));
+    threadpool->Submit(std::bind(&Webserver::onRead, client));
 }
 void Webserver::handleWrite(Connect *client)
 {
     flushTime(client);
 
-    threadpool->Submit(std::bind(&Webserver::onWrite, this, client));
+    threadpool->Submit(std::bind(&Webserver::onWrite, client));
 }
 void Webserver::onRead(Connect *client)
 {
@@ -190,17 +196,14 @@ void Webserver::Start()
                 handleListen();
             else if (events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR))
             {
-                assert(user.count(fd) > 0);
                 closeConn(&user[fd]);
             }
             else if (events & EPOLLIN)
             {
-                assert(user.count(fd) > 0);
                 handleRead(&user[fd]);
             }
             else if (events & EPOLLOUT)
             {
-                assert(user.count(fd) > 0);
                 handleWrite(&user[fd]);
             }
             else

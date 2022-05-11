@@ -7,28 +7,29 @@
 class Webserver
 {
   private:
-    int port, timeout, listenFd;
+    int port, listenFd;
+    static int timeout;
     char *dir;
     bool isClose;
-    std::unique_ptr<TimeHeap> timer;
-    std::unique_ptr<ThreadPool> threadpool;
-    std::unique_ptr<Epoll> epoller;
-    std::unordered_map<int, Connect> user;
+    static std::unique_ptr<TimeHeap> timer;
+    static std::unique_ptr<ThreadPool> threadpool;
+    static std::unique_ptr<Epoll> epoller;
+    std::vector<Connect> user;
     static const uint32_t listenEvent = EPOLLRDHUP | EPOLLET;
     static const uint32_t connectionEvent = EPOLLONESHOT | EPOLLRDHUP | EPOLLET;
     static const int MAX_FD = 65536;
     bool initSocket();
     int setFdNonblock(int fd);
     void addConn(int fd, sockaddr_in addr);
-    void closeConn(Connect *client);
+    static void closeConn(Connect *client);
     void sendError(int fd, const char *info);
-    void flushTime(Connect *client);
+    static void flushTime(Connect *client);
     void handleListen();
-    void handleRead(Connect *client);
-    void handleWrite(Connect *client);
-    void onProcess(Connect *client);
-    void onRead(Connect *client);
-    void onWrite(Connect *client);
+    static void handleRead(Connect *client);
+    static void handleWrite(Connect *client);
+    static void onProcess(Connect *client);
+    static void onRead(Connect *client);
+    static void onWrite(Connect *client);
 
   public:
     Webserver(int port, int timeout, int threadNum, int queMaxSize);
