@@ -73,7 +73,6 @@ bool Request::parseRequestLine(const std::string &line)
     method = line.substr(0, pos1);
     path = line.substr(pos1 + 1, pos2 - pos1 - 1);
     version = line.substr(pos2 + 6);
-    std::cout << version << std::endl;
     state = HEADER;
     return true;
 }
